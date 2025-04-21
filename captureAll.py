@@ -63,7 +63,7 @@ try:
     numframes=10
     # Remember to change the port number. verbose=True will display all serial port commands and responses sent to the millimeter wave radar board.
     # radar = TI(cli_loc='COM4', data_loc='COM5',data_baud=921600,config_file=radar_config_file,verbose=True)     # for Windows
-    radar = TI(li_loc='/dev/ttyACM0', cli_baud=115200, data_loc='/dev/ttyACM1', data_baud=921600, config_file=radar_config_file, verbose=True)
+    radar = TI(cli_loc='/dev/ttyACM0', cli_baud=115200, data_loc='/dev/ttyACM1', data_baud=921600, config_file=radar_config_file, verbose=True)
     # After setting the number of frames, the radar will stop automatically. There is no need to send a stop command to the FPGA, but you still need to send a stop command to the radar.
     radar.setFrameCfg(numframes)
 
