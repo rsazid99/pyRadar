@@ -5,33 +5,33 @@ from mmwave.dataloader.radars import TI
 import numpy as np
 import datetime
 '''
-# 采集原始数据的一般流程
-1. 重置雷达与DCA1000(reset_radar、reset_fpga)
-2. 通过UART初始化雷达并配置相应参数(TI、setFrameCfg)
-3. (optional)创建从串口接收片内DSP处理好的数据的进程(create_read_process)
-4. 通过网口udp发送配置fpga指令(config_fpga)
-5. 通过网口udp发送配置record数据包指令(config_record)
-6. (optional)启动串口接收进程（只进行缓存清零）(start_read_process)
-7. 通过网口udp发送开始采集指令(stream_start)
-8. (optional)启动UDP数据包接收线程(fastRead_in_Cpp_async_start)
-9. 通过串口启动雷达（理论上通过FTDI(USB转SPI)也能控制，目前只在AWR2243上实现）(startSensor)
-10. 等待UDP数据包接收线程结束+解析出原始数据(fastRead_in_Cpp_async_wait/fastRead_in_Cpp)
-11. 保存原始数据到文件离线处理(tofile)
-12. (optional)通过网口udp发送停止采集指令(stream_stop)
-13. 通过串口关闭雷达(stopSensor) 或 通过网口发送重置雷达命令(reset_radar)
-14. (optional)停止接收串口数据(stop_read_process)
-15. (optional)解析从串口接收的点云等片内DSP处理好的数据(post_process_data_buf)
+# General process of collecting raw data
+1. Reset radar and DCA1000 (reset_radar, reset_fpga)
+2. Initialize radar through UART and configure corresponding parameters (TI, setFrameCfg)
+3. (optional) Create a process to receive data processed by DSP on chip from serial port (create_read_process)
+4. Send configuration fpga command through network port udp (config_fpga)
+5. Send configuration record data packet command through network port udp (config_record)
+6. (optional) Start serial port receiving process (only clear cache) (start_read_process)
+7. Send start acquisition command through network port udp (stream_start)
+8. (optional) Start UDP data packet receiving thread (fastRead_in_Cpp_async_start)
+9. Start radar through serial port (theoretically, it can also be controlled through FTDI (USB to SPI), currently only implemented on AWR2243) (startSensor)
+10. Wait for the UDP data packet receiving thread to end + parse the original data (fastRead_in_Cpp_async_wait/fastRead_in_Cpp)
+11. Save the original data to a file for offline processing (tofile)
+12. (optional) Send a stop acquisition command (stream_stop) through the network port udp
+13. Turn off the radar through the serial port (stopSensor) or send a reset radar command (reset_radar) through the network port
+14. (optional) Stop receiving serial port data (stop_read_process)
+15. (optional) Analyze the point cloud and other data received from the serial port that has been processed by the on-chip DSP (post_process_data_buf)
 
-# "*.cfg"毫米波雷达配置文件要求
+# "*.cfg" millimeter wave radar configuration file requirements
 Default profile in Visualizer disables the LVDS streaming.
 To enable it, please export the chosen profile and set the appropriate enable bits.
-adcbufCfg需如下设置，lvdsStreamCfg的第三个参数需设置为1，具体参见mmwave_sdk_user_guide.pdf
+adcbufCfg needs to be set as follows, and the third parameter of lvdsStreamCfg needs to be set to 1. For details, see mmwave_sdk_user_guide.pdf
 1. adcbufCfg -1 0 1 1 1
 2. lvdsStreamCfg -1 0 1 0 
 
-# "cf.json"数据采集卡配置文件要求
-使用xWR1843时需将lvdsMode设为2，xWR1843只支持2路LVDS lanes
-具体信息请查阅TI_DCA1000EVM_CLI_Software_UserGuide.pdf
+# "cf.json" Data acquisition card configuration file requirements
+When using xWR1843, lvdsMode must be set to 2. xWR1843 only supports 2 LVDS lanes
+For more information, please refer to TI_DCA1000EVM_CLI_Software_UserGuide.pdf
 lvds Mode:
 LVDS mode specifies the lane config for LVDS. This field is valid only when dataTransferMode is "LVDSCapture".
 The valid options are
@@ -51,76 +51,76 @@ radar = None
 try:
     dca = DCA1000()
 
-    # 1. 重置雷达与DCA1000
+    # 1. Reset radar and DCA1000
     dca.reset_radar()
     dca.reset_fpga()
     print("wait for reset")
     time.sleep(1)
 
-    # 2. 通过UART初始化雷达并配置相应参数
-    dca_config_file = "configFiles/cf.json" # 记得将cf.json中的lvdsMode设为2，xWR1843只支持2路LVDS lanes
-    radar_config_file = "configFiles/xWR1843_profile_3D.cfg" # 记得将lvdsStreamCfg的第三个参数设置为1开启LVDS数据传输
+    # 2. Initialize the radar through UART and configure the corresponding parameters
+    dca_config_file = "configFiles/cf.json" # Remember to set lvdsMode in cf.json to 2. xWR1843 only supports 2 LVDS lanes.
+    radar_config_file = "configFiles/xWR1843_profile_3D.cfg" # Remember to set the third parameter of lvdsStreamCfg to 1 to enable LVDS data transmission
     numframes=10
-    # 记得改端口号,verbose=True会显示向毫米波雷达板子发送的所有串口指令及响应
-    radar = TI(cli_loc='COM4', data_loc='COM5',data_baud=921600,config_file=radar_config_file,verbose=True)
-    # radar设置frame个数后会自动停止，无需向FPGA发送停止命令，但仍需向radar发送停止命令
+    # Remember to change the port number. verbose=True will display all serial port commands and responses sent to the millimeter wave radar board.
+    # radar = TI(cli_loc='COM4', data_loc='COM5',data_baud=921600,config_file=radar_config_file,verbose=True)     # for Windows
+    radar = TI(li_loc='/dev/ttyACM0', cli_baud=115200, data_loc='/dev/ttyACM1', data_baud=921600, config_file=radar_config_file, verbose=True)
+    # After setting the number of frames, the radar will stop automatically. There is no need to send a stop command to the FPGA, but you still need to send a stop command to the radar.
     radar.setFrameCfg(numframes)
 
-    # 3. 创建从串口接收片内DSP处理好的数据的进程
+    # 3. Create a process to receive data processed by the on-chip DSP from the serial port
     radar.create_read_process(numframes)
 
-    # 4. 通过网口UDP发送配置FPGA指令
-    # 5. 通过网口UDP发送配置record数据包指令
+    # 4. Send FPGA configuration instructions through the network port UDP
+    # 5. Send configuration record data packet instructions through the network port UDP
     '''
-    dca.sys_alive_check()             # 检查FPGA是否连通正常工作
-    dca.config_fpga(dca_config_file)  # 配置FPGA参数
-    dca.config_record(dca_config_file)# 配置record参数
+    dca.sys_alive_check()             # Check whether the FPGA is connected and working properly
+    dca.config_fpga(dca_config_file)  # Configuring FPGA Parameters
+    dca.config_record(dca_config_file)# Configuring record parameters
     '''
-    dca.configure(dca_config_file,radar_config_file)  # 此函数完成上述所有操作
-
-    # 按回车开始采集
+    dca.configure(dca_config_file,radar_config_file)  # This function completes all the above operations
+    # Press Enter to start collecting
     input("press ENTER to start capture...")
 
-    # 6. 启动串口接收进程（只进行缓存清零，仅当循环多次采集而不运行stop时才需使用）
+    # 6. Start the serial port receiving process (only clear the cache, only required when looping multiple acquisitions without running stop)
     radar.start_read_process()
-    # 7. 通过网口UDP发送开始采集指令
+    # 7. Send the start acquisition command via the network port UDP
     dca.stream_start()
-    # 8. 启动UDP数据包接收线程
-    # numframes_out,sortInC_out = dca.fastRead_in_Cpp_async_start(numframes,sortInC=True) # 【采集方法一】1、异步调用(需要C++17及以上编译器支持)
+    # 8. Start the UDP packet receiving thread
+    # numframes_out,sortInC_out = dca.fastRead_in_Cpp_async_start(numframes,sortInC=True) # [Collection method 1] 1. Asynchronous call (requires C++17 and above compiler support)
 
-    # 9. 通过串口启动雷达
+    # 9. Start the radar via the serial port
     startTime = datetime.datetime.now()
     start = time.time()
     radar.startSensor()
 
-    # 10. 等待UDP数据包接收线程结束+解析出原始数据
-    # data_buf = dca.fastRead_in_Cpp_async_wait(numframes_out,sortInC_out) # 【采集方法一】2、等待异步线程结束
-    data_buf = dca.fastRead_in_Cpp(numframes,sortInC=True) # 【采集方法二】同步调用(会丢失开始采集前的包，但兼容性更好)
+    # 10. Wait for the UDP data packet receiving thread to end + parse the original data
+    # data_buf = dca.fastRead_in_Cpp_async_wait(numframes_out,sortInC_out) # [Collection method 1] 2. Wait for the asynchronous thread to end
+    data_buf = dca.fastRead_in_Cpp(numframes,sortInC=True) # [Collection method 2] Synchronous call (the package before the start of collection will be lost, but the compatibility is better)
     end = time.time()
     print("time elapsed(s):",end-start)
 
-    # 11. 保存原始数据到文件
+    # 11. Save the original data to a file
     filename="raw_data_"+startTime.strftime('%Y-%m-%d-%H-%M-%S')+".bin"
     data_buf.tofile(filename)
     print("file saved to",filename)
     
-    # 12. DCA停止采集，设置frame个数后会自动停止，无需向FPGA发送停止命令
+    # 12. DCA stops acquisition and automatically stops after setting the number of frames, without sending a stop command to the FPGA
     # dca.stream_stop()
-    # 13. 通过串口关闭雷达
+    # 13. Turn off the radar via the serial port
     radar.stopSensor()
-    # 14. 停止接收串口数据
+    # 14. Stop receiving serial port data
     radar.stop_read_process()
 
-    # 15. 解析从串口接收的点云等片内DSP处理好的数据,verbose=True会在处理过程中显示每一帧的详细信息
+    # 15. Parse the point cloud and other data processed by the on-chip DSP received from the serial port. verbose=True will display detailed information of each frame during the processing.
     DSP_Processed_data=radar.post_process_data_buf(verbose=False)
 
-    # 解析好的点云等数据在DSP_Processed_data这个变量内
+    # The parsed point cloud data is in the variable DSP_Processed_data
     # print(DSP_Processed_data)
 
-    # 未解析的串口原始数据在radar.byteBuffer这个变量内
+    # The unparsed serial port raw data is in the radar.byteBuffer variable
     # print(radar.byteBuffer)
     
-    # 将解析后的串口数据保存到文件，加载可用np.load('xxx.npy', allow_pickle=True)
+    # Save the parsed serial port data to a file and load it using np.load('xxx.npy', allow_pickle=True)
     dspFileName = "DSP_data_"+startTime.strftime('%Y-%m-%d-%H-%M-%S')
     np.save(dspFileName, DSP_Processed_data)
     print(f'file saved to {dspFileName}.npy')
@@ -132,4 +132,4 @@ finally:
         dca.close()
     if radar is not None:
         radar.cli_port.close()
-        # radar.data_port.close() # 停止接收串口数据radar.stop_read_process()时自动关闭
+        # radar.data_port.close() # Stop receiving serial port data and automatically close when radar.stop_read_process() is used
