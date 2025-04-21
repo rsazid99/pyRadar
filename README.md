@@ -48,14 +48,10 @@
  - Then you'll need to install the library:
    - ```
      tar -xzvf libftd2xx-arm-v8-1.4.27.tgz
-     cd release
+     cd linux-x86_64
      sudo cp ftd2xx.h /usr/local/include
      sudo cp WinTypes.h /usr/local/include
-     cd build
-     sudo cp libftd2xx.so.1.4.27 /usr/local/lib
-     sudo chmod 0755 /usr/local/lib/libftd2xx.so.1.4.27
-     sudo ln -sf /usr/local/lib/libftd2xx.so.1.4.27 /usr/local/lib/libftd2xx.so
-     sudo ldconfig -v
+     sudo cp libftd2xx.so /usr/lib
      ```
 
 
@@ -67,9 +63,9 @@
    - `python3 -m pip install --upgrade setuptools`
    - `python3 -m pip install ./fpga_udp`
  - for Linux:
-   - `sudo python3 -m pip install --upgrade pip`
-   - `sudo python3 -m pip install --upgrade setuptools`
-   - `sudo python3 -m pip install ./fpga_udp`
+   - `pip install --upgrade pip`
+   - `pip install --upgrade setuptools`
+   - `pip install ./fpga_udp`
 
 
 ## Instructions for Use
@@ -123,7 +119,7 @@ Sample code for simultaneously collecting the IQ data sampled by the original AD
 #### 3. "cf.json" data acquisition card configuration file requirements
 - For specific information, please refer to TI_DCA1000EVM_CLI_Software_UserGuide.pdf
  - lvds Mode:
-    - LVDS mode specifies the lane config for LVDS. This field is valid only when dataTransferMode is "LVDSCapture".
+    - LVDS mode specifies the lane config for LVDS. This field is valid only when dataTransferMode is "LVDSCapture". When using xWR1843, lvdsMode must be set to 2. xWR1843 only supports 2 LVDS lanes For more information, please refer to TI_DCA1000EVM_CLI_Software_UserGuide.pdf
     - The valid options are
     - • 1 (4lane)
     - • 2 (2lane)
